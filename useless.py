@@ -6,34 +6,35 @@ from config import (API_KEY,
 import time
 
 
-def plagiarize():
-    reviewed_comments = set([])
+def bot():
     stored_quotes = [quote.lower() for quote in rous.sayings()]
+    comments_endpoint = "https://api.meetup.com/{meetup}/events/{event_id}/comments?key={key}".format(meetup=MEETUP,
+                                                                                                      event_id=EVENT_ID,
+                                                                                                      key=API_KEY)
 
     while True:
-        response = requests.get("https://api.meetup.com/{meetup}/events/{event_id}/comments?key={key}"
-                                .format(meetup=MEETUP, event_id=EVENT_ID, key=API_KEY))
+        response = requests.get(comments_endpoint)
         comments = response.json()
 
         for comment in comments:
             comment_id = comment["id"]
             comment_text = comment["comment"]
-            comment_likes = comment["like_count"]
-            comment_author = comment['member']['name']
+            comment_replies = comment.get("replies")
 
-            if comment_id in reviewed_comments:
+            if comment_replies:
                 continue
 
-            if comment_likes:
-                for quote in stored_quotes:
-                    if comment_text.lower() in quote.lower():
-                        print("{quote}\n- {attributed}"
-                              .format(quote=quote, attributed=comment_author))
-                        reviewed_comments.add(comment_id)
-                        time.sleep(3)
-                        break
-                else:
-                    print("No relevant quote found!")
+            for quote in stored_quotes:
+                if comment_text.lower() in quote:
+                    requests.post(comments_endpoint, data={"comment": quote,
+                                                           "in_reply_to": comment_id,
+                                                           "notifications": False})
+                    time.sleep(3)
+                    break
+            else:
+                requests.post(comments_endpoint, data={"comment": "sorry...",
+                                                       "in_reply_to": comment_id,
+                                                       "notifications": False})
 
         print("Waiting for another comment...")
         time.sleep(15)
